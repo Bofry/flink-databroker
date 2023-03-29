@@ -1,0 +1,63 @@
+namespace: com.bofry
+kubernetes:
+  namespace: 'gaas-flink-${Environment}-namespace'
+  name: 'flink-config'
+  config_file: 'flink-conf.yaml'
+source:
+  - type: kafka
+    route: source-sink
+    config:
+      topic: 'flink-test-source-topic-${Environment}'
+      properties:
+        bootstrap.servers: 'localhost:9092'
+        group.id: flink-test-group
+        auto.offset.reset: earliest
+        max.poll.records: 50
+        max.poll.interval.ms: 86400000
+    metadata:
+      - name: timestamp
+        type: timestamp
+        precision: sec
+sink:
+  - type: cassandra
+    route: !regex { pattern: '^[a-zA-Z0-9._.-]+'}
+    config:
+      properties:
+        host: 'localhost'
+        port: 9042
+        keyspace: 'test'
+        table: 'test_table'
+    mapping:
+      - name: id
+        type: long
+        tag:
+          - 'required'
+        source: id
+      - name: memo
+        type: map
+        tag:
+          - 'required'
+        source: memo
+      - name: create_date
+        type: timestamp
+        precision: msec
+        tag:
+          - 'required'
+        source: timestamp
+        default: 1628880299123
+    on_retry:
+      type: kafka
+      config:
+        topic: 'flink-test-retry-topic-${Environment}'
+        properties:
+          bootstrap.servers: 'localhost:9092'
+          acks: '-1'
+          security.protocol: 'PLAINTEXT'
+    on_failure:
+      type: kafka
+      config:
+        topic: 'flink-test-failure-topic-${Environment}'
+        properties:
+          bootstrap.servers: 'localhost:9092'
+          acks: '-1'
+          security.protocol: 'PLAINTEXT'

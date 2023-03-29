@@ -1,0 +1,67 @@
+namespace: com.bofry
+kubernetes:
+  namespace: 'gaas-flink-${Environment}-namespace'
+  name: 'flink-config'
+  config_file: 'flink-conf.yaml'
+source:
+  - type: kafka
+    route: source-sink
+    config:
+      topic: 'flink-test-source-topic-${Environment}'
+      properties:
+        bootstrap.servers: 'localhost:9092'
+        group.id: flink-test-group
+        auto.offset.reset: earliest
+        max.poll.records: 50
+        max.poll.interval.ms: 86400000
+sink:
+  - type: postgresql
+    route: !regex { pattern: '^[a-zA-Z0-9._.-]+'}
+    config:
+      properties:
+        host: 'jdbc:postgresql://127.0.0.1:5432/testdb'
+        user: 'postgres'
+        password: 'example'
+        sql: 'INSERT INTO bet (player, bet, create_date, symbol) VALUES (%{player}, %{bet}, %{create_date}, %{symbol});'
+    mapping:
+      - name: player
+        type: string
+        tag:
+          - 'required'
+          - 'non_empty'
+        source: player
+        default: jj
+      - name: bet
+        type: decimal
+        tag:
+          - 'required'
+          - 'non_negative_integer'
+        source: bet
+        default: 9999.99
+      - name: create_date
+        type: timestamp
+        tag:
+          - 'required'
+        source: timestamp
+        default: 1628880299123
+      - name: symbol
+        type: string[]
+        tag:
+          - 'required'
+        source: symbol
+    on_retry:
+      type: kafka
+      config:
+        topic: 'flink-test-retry-topic-${Environment}'
+        properties:
+          bootstrap.servers: 'localhost:9092'
+          acks: '-1'
+          security.protocol: 'PLAINTEXT'
+    on_failure:
+      type: kafka
+      config:
+        topic: 'flink-test-failure-topic-${Environment}'
+        properties:
+          bootstrap.servers: 'localhost:9092'
+          acks: '-1'
+          security.protocol: 'PLAINTEXT'

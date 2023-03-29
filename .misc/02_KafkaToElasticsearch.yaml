@@ -1,0 +1,98 @@
+namespace: com.bofry
+kubernetes:
+  namespace: 'gaas-flink-${Environment}-namespace'
+  name: 'flink-config'
+  config_file: 'flink-conf.yaml'
+source:
+  - type: kafka
+    route: source-sink
+    config:
+      topic: 'flink-test-source-topic-${Environment}'
+      properties:
+        bootstrap.servers: 'localhost:9092'
+        group.id: flink-test-group
+        auto.offset.reset: earliest
+        max.poll.records: 50
+        max.poll.interval.ms: 86400000
+    metadata:
+      - name: startAt
+        type: timestamp
+        precision: sec
+sink:
+  - type: elasticsearch
+    route: !regex { pattern: '^[a-zA-Z0-9._.-]+'}
+    config:
+      properties:
+        host: '${Elasticsearch_Business_Address}'
+        user: '${Elasticsearch_Business_Username}'
+        password: '${Elasticsearch_Business_Password}'
+        method: 'POST'
+        use_bulk: true
+        bulk_flush_interval: 10 # 設定檔設定值, 若為時間, 為秒為基準, 若為其它單位則加後綴 _ms, _ns ....
+        bulk_flush_capacity: 50
+        bulk_flush_max_size: 2097152
+        action: 'update'
+        index: "gaas-round-${Environment}-#{ctx.ticketId[0..5]}"
+        document_id: "ticketId:#{ctx.ticketId}:provider:#{ctx.vendor}"
+        dsl: |
+          {
+             "script": {
+               "source": "ctx._source.vendor = params.vendor;ctx._source.player = params.player;",
+               "lang": "painless",
+               "params": %{*}
+             },
+             "upsert": %{*}
+          }
+    mapping:
+      - name: ticketId
+        type: string
+        tag:
+          - 'required'
+          - 'non_empty'
+        source: ticketId
+      - name: vendor
+        type: long
+        tag:
+          - 'required'
+        source: provider
+        default: 10547
+      - name: player
+        type: string
+        tag:
+          - 'required'
+          - 'non_empty'
+        source: player
+        default: jj
+      - name: start_at
+        type: timestamp
+        precision: msec
+        tag:
+          - 'required'
+        source: startAt
+        default: 1632710372000
+      - name: parent_round
+        type: long
+        tag:
+        source: round
+        default: !ref {field: round}
+      - name: round
+        type: long
+        tag:
+          - 'required'
+        source: round
+    on_retry:
+      type: kafka
+      config:
+        topic: 'flink-test-retry-topic-${Environment}'
+        properties:
+          bootstrap.servers: 'localhost:9092'
+          acks: '-1'
+          security.protocol: 'PLAINTEXT'
+    on_failure:
+      type: kafka
+      config:
+        topic: 'flink-test-failure-topic-${Environment}'
+        properties:
+          bootstrap.servers: 'localhost:9092'
+          acks: '-1'
+          security.protocol: 'PLAINTEXT'

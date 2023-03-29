@@ -1,0 +1,75 @@
+namespace: com.bofry.default.test
+kubernetes:
+  namespace: 'gaas-flink-${Environment}-namespace'
+  name: 'flink-config'
+  config_file: 'flink-conf.yaml'
+source:
+  - type: kafka
+    route: source-sink
+    config:
+      topic: 'flink-test-source-topic-${Environment}'
+      properties:
+        bootstrap.servers: '${Kafka_Bootstrap}'
+        group.id: flink-test-group
+        auto.offset.reset: earliest
+        max.poll.records: 50
+        max.poll.interval.ms: 86400000
+    metadata:
+      - name: tst
+        type: timestamp
+        precision: sec
+sink:
+  - type: stdout
+    route: !regex { pattern: '^[a-zA-Z0-9._.-]+'}
+    config:
+      prefix: 'test1 Say:'
+    mapping:
+      - name: b
+        type: boolean
+        source: b
+        default: true
+      - name: s
+        type: string
+        source: s
+        default: "I am default."
+      - name: i
+        type: integer
+        source: i
+        default: 100
+      - name: l
+        type: long
+        source: l
+        default: 200
+      - name: dm
+        type: decimal
+        source: d
+        default: 300.987
+      - name: da
+        type: date
+        source: da
+        default: 1639464144934
+      - name: ti
+        type: time
+        source: ti
+        default: 1639464144934
+      - name: tst
+        type: timestamp
+        precision: msec
+        source: tst
+        default: 1639464144000
+    on_retry:
+      type: kafka
+      config:
+        topic: 'flink-test-retry-topic-${Environment}'
+        properties:
+          bootstrap.servers: '${Kafka_Bootstrap}'
+          acks: '${Kafka_Acks}'
+          security.protocol: '${Kafka_Security_Protocol}'
+    on_failure:
+      type: kafka
+      config:
+        topic: 'flink-test-failure-topic-${Environment}'
+        properties:
+          bootstrap.servers: '${Kafka_Bootstrap}'
+          acks: '${Kafka_Acks}'
+          security.protocol: '${Kafka_Security_Protocol}'

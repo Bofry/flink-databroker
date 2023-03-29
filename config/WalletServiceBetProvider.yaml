@@ -1,0 +1,376 @@
+namespace: com.bofry.service.wallet.bet.provider
+#kubernetes:
+#  namespace: 'gaas-flink-dev-namespace'
+#  name: 'flink-config'
+#  config_file: 'flink-conf.yaml'
+source:
+  - type: redis
+    route: stage-uncommitted-bet
+    config:
+      properties:
+        host: '10.3.185.28'
+        port: '6481'
+        db: 9
+        stream.name: 'stage:gaas/uncommitted/bet'
+        stream.group: 'gaas-game-bet-provider-${Environment}'
+        max.in.flight: 100
+        max.polling.timeout.ms: 100
+        claim.min.idle.time: 30
+        idling.timeout.ms: 300
+        claim.sensitivity: 1
+        claim.occurrence.rate: 5
+        auto.commit.action: 'delete'
+        auto.commit.interval.ms: 3000
+        concurrency: 4
+    metadata:
+      - name: bonus
+        type: json
+      - name: symbol
+        type: json
+  - type: redis
+    route: stage-committed-bet
+    config:
+      properties:
+        host: '10.3.185.28'
+        port: '6481'
+        db: 9
+        stream.name: 'stage:gaas/committed/bet'
+        stream.group: 'gaas-game-bet-provider-${Environment}'
+        max.in.flight: 100
+        max.polling.timeout.ms: 100
+        claim.min.idle.time: 30
+        idling.timeout.ms: 300
+        claim.sensitivity: 1
+        claim.occurrence.rate: 5
+        auto.commit.action: 'delete'
+        auto.commit.interval.ms: 3000
+    metadata:
+      - name: bonus
+        type: json
+      - name: symbol
+        type: json
+  - type: redis
+    route: retry-bet
+    config:
+      properties:
+        host: '192.168.3.34'
+        port: '6379'
+        db: 9
+        stream.name: 'stage:gaas/bet'
+        stream.group: 'gaas-game-bet-provider-${Environment}'
+        max.in.flight: 100
+        max.polling.timeout.ms: 100
+        claim.min.idle.time: 30
+        idling.timeout.ms: 300
+        claim.sensitivity: 1
+        claim.occurrence.rate: 5
+        auto.commit.action: 'delete'
+        auto.commit.interval.ms: 3000
+    metadata:
+      - name: bonus
+        type: json
+      - name: symbol
+        type: json
+sink:
+  - type: kafka
+    route: !regex { pattern: 'stage.*'}
+    filter: "ctx.status != 'CANCELLED' && (ctx.status == 'RUNNING' || ctx.status == 'SETTLED')"
+    config:
+      topic: 'flink-test-source-topic-${Environment}'
+      message_key: "#{ctx.player}@#{ctx.provider}"
+      properties:
+        bootstrap.servers: '${Kafka_Bootstrap}'
+        acks: '${Kafka_Acks}'
+        security.protocol: '${Kafka_Security_Protocol}'
+    mapping:
+      #      - name: _timestamp
+      #        type: string
+      #        source:
+      - name: account
+        type: string
+        source: account
+      - name: accountType
+        type: string
+        source: account_type
+      - name: betTransactionAmount
+        type: string
+        source: bet/transaction_amount
+      - name: betTransactionAt
+        type: timestamp
+        source: bet/transaction_at
+      - name: betTransactionBalance
+        type: string
+        source: bet/transaction_balance
+      - name: betTransactionId
+        type: string
+        source: bet/transaction_id
+      - name: bonus
+        type: json
+        source: bonus
+      - name: cancelTransactionAmount
+        type: string
+        source: cancel/transaction_amount
+      - name: cancelTransactionAt
+        type: timestamp
+        source: cancel/transaction_at
+      - name: cancelTransactionBalance
+        type: string
+        source: cancel/transaction_balance
+      - name: cancelTransactionId
+        type: string
+        source: cancel/transaction_id
+      - name: casino
+        type: string
+        source: casino
+      - name: currency
+        type: string
+        source: currency
+      - name: dealer
+        type: string
+        source: dealer
+      - name: dealerPlayer
+        type: string
+        source: dealer_player
+      - name: game
+        type: string
+        source: game
+      - name: parentRound
+        type: string
+        source: parent_round
+      - name: parentRoundType
+        type: string
+        source: parent_round_type
+      - name: parentStageTriggeredTicket
+        type: string
+        source: parent_stage_triggered_ticket
+      - name: player
+        type: string
+        source: player
+      - name: playerDevice
+        type: string
+        source: player_device
+      - name: playerIp
+        type: string
+        source: player_ip
+      - name: playerOs
+        type: string
+        source: player_os
+      - name: provider
+        type: string
+        source: provider
+      - name: room
+        type: string
+        source: room
+      - name: round
+        type: string
+        source: round
+      - name: roundType
+        type: string
+        source: round_type
+      - name: session
+        type: string
+        source: session
+      - name: settleTransactionAmount
+        type: string
+        source: settle/transaction_amount
+      - name: settleTransactionAt
+        type: timestamp
+        source: settle/transaction_at
+      - name: settleTransactionBalance
+        type: string
+        source: settle/transaction_balance
+      - name: settleTransactionId
+        type: string
+        source: settle/transaction_id
+      - name: stage
+        type: string
+        source: stage
+      - name: status
+        type: string
+        source: status
+      - name: symbol
+        type: json
+        source: symbol
+      - name: ticketId
+        type: string
+        source: ticket_id
+      - name: timezone
+        type: string
+        source: timezone
+      - name: triggeredStage
+        type: string
+        source: triggered_stage
+      - name: triggeredTicket
+        type: string
+        source: triggered_ticket
+      - name: wager
+        type: string
+        source: wager
+      - name: wallet
+        type: string
+        source: wallet
+      - name: winType
+        type: string
+        source: win_type
+      - name: winlost
+        type: string
+        source: winlost
+    on_retry:
+      type: redis
+      config:
+        properties:
+          host: '192.168.3.34'
+          port: '6379'
+          db: 9
+          stream.name: 'stage:gaas/bet'
+    on_failure:
+      type: redis
+      config:
+        properties:
+          host: '192.168.3.34'
+          port: '6379'
+          db: 9
+          stream.name: 'failure:gaas/bet'
+  - type: kafka
+    route: !regex { pattern: 'retry-bet'}
+    filter: "ctx.status != 'CANCELLED' && (ctx.status == 'RUNNING' || ctx.status == 'SETTLED')"
+    config:
+      topic: 'flink-test-source-topic-${Environment}'
+      message_key: "#{ctx.player}@#{ctx.provider}"
+      properties:
+        bootstrap.servers: '${Kafka_Bootstrap}'
+        acks: '${Kafka_Acks}'
+        security.protocol: '${Kafka_Security_Protocol}'
+    mapping:
+      #      - name: _timestamp
+      #        type: string
+      #        source:
+      - name: account
+        type: string
+        source: account
+      - name: accountType
+        type: string
+        source: account_type
+      - name: betTransactionAmount
+        type: string
+        source: bet/transaction_amount
+      - name: betTransactionAt
+        type: timestamp
+        source: bet/transaction_at
+      - name: betTransactionBalance
+        type: string
+        source: bet/transaction_balance
+      - name: betTransactionId
+        type: string
+        source: bet/transaction_id
+      - name: bonus
+        type: json
+        source: bonus
+      - name: cancelTransactionAmount
+        type: string
+        source: cancel/transaction_amount
+      - name: cancelTransactionAt
+        type: timestamp
+        source: cancel/transaction_at
+      - name: cancelTransactionBalance
+        type: string
+        source: cancel/transaction_balance
+      - name: cancelTransactionId
+        type: string
+        source: cancel/transaction_id
+      - name: casino
+        type: string
+        source: casino
+      - name: currency
+        type: string
+        source: currency
+      - name: dealer
+        type: string
+        source: dealer
+      - name: dealerPlayer
+        type: string
+        source: dealer_player
+      - name: game
+        type: string
+        source: game
+      - name: parentRound
+        type: string
+        source: parent_round
+      - name: parentRoundType
+        type: string
+        source: parent_round_type
+      - name: parentStageTriggeredTicket
+        type: string
+        source: parent_stage_triggered_ticket
+      - name: player
+        type: string
+        source: player
+      - name: playerDevice
+        type: string
+        source: player_device
+      - name: playerIp
+        type: string
+        source: player_ip
+      - name: playerOs
+        type: string
+        source: player_os
+      - name: provider
+        type: string
+        source: provider
+      - name: room
+        type: string
+        source: room
+      - name: round
+        type: string
+        source: round
+      - name: roundType
+        type: string
+        source: round_type
+      - name: session
+        type: string
+        source: session
+      - name: settleTransactionAmount
+        type: string
+        source: settle/transaction_amount
+      - name: settleTransactionAt
+        type: timestamp
+        source: settle/transaction_at
+      - name: settleTransactionBalance
+        type: string
+        source: settle/transaction_balance
+      - name: settleTransactionId
+        type: string
+        source: settle/transaction_id
+      - name: stage
+        type: string
+        source: stage
+      - name: status
+        type: string
+        source: status
+      - name: symbol
+        type: json
+        source: symbol
+      - name: ticketId
+        type: string
+        source: ticket_id
+      - name: timezone
+        type: string
+        source: timezone
+      - name: triggeredStage
+        type: string
+        source: triggered_stage
+      - name: triggeredTicket
+        type: string
+        source: triggered_ticket
+      - name: wager
+        type: string
+        source: wager
+      - name: wallet
+        type: string
+        source: wallet
+      - name: winType
+        type: string
+        source: win_type
+      - name: winlost
+        type: string
+        source: winlost

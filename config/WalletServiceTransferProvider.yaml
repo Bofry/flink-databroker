@@ -1,0 +1,186 @@
+namespace: com.bofry.service.wallet.transfer.provider
+#kubernetes:
+#  namespace: 'gaas-flink-dev-namespace'
+#  name: 'flink-config'
+#  config_file: 'flink-conf.yaml'
+source:
+  - type: redis
+    route: stage-transfer
+    config:
+      properties:
+        host: '10.3.185.28'
+        port: '6481'
+        db: 9
+        stream.name: 'stage:gaas/committed/transfer'
+        stream.group: 'gaas-game-transfer-provider-${Environment}'
+        max.in.flight: 100
+        max.polling.timeout.ms: 100
+        claim.min.idle.time: 30
+        idling.timeout.ms: 300
+        claim.sensitivity: 1
+        claim.occurrence.rate: 5
+        auto.commit.action: 'delete'
+        auto.commit.interval.ms: 3000
+        concurrency: 4
+  - type: redis
+    route: retry-transfer
+    config:
+      properties:
+        host: '192.168.3.34'
+        port: '6379'
+        db: 9
+        stream.name: 'stage:gaas/transfer'
+        stream.group: 'gaas-game-transfer-provider-${Environment}'
+        max.in.flight: 100
+        max.polling.timeout.ms: 100
+        claim.min.idle.time: 30
+        idling.timeout.ms: 300
+        claim.sensitivity: 1
+        claim.occurrence.rate: 5
+        auto.commit.action: 'delete'
+        auto.commit.interval.ms: 3000
+sink:
+  - type: kafka
+    route: !regex { pattern: 'stage-transfer'}
+    config:
+      topic: 'flink-test-retry-topic-${Environment}'
+      message_key: "#{ctx.player}@#{ctx.provider}"
+      properties:
+        bootstrap.servers: '${Kafka_Bootstrap}'
+        acks: '${Kafka_Acks}'
+        security.protocol: '${Kafka_Security_Protocol}'
+    mapping:
+#      - name: _timestamp
+#        type: string
+#        source:
+      - name: amount
+        type: string
+        source: amount
+      - name: asset
+        type: string
+        source: asset
+      - name: balance
+        type: string
+        source: balance
+      - name: casino
+        type: string
+        source: casino
+      - name: casinoTransactionId
+        type: string
+        source: casino_transaction_id
+      - name: commitAt
+        type: timestamp
+        source: commit_at
+      - name: currency
+        type: string
+        source: currency
+      - name: dealer
+        type: string
+        source: dealer
+      - name: dealerPlayer
+        type: string
+        source: dealer_player
+      - name: nonExpendable
+        type: string
+        source: non_expendable
+      - name: operationUrn
+        type: string
+        source: operation_urn
+      - name: player
+        type: string
+        source: player
+      - name: provider
+        type: string
+        source: provider
+      - name: status
+        type: string
+        source: status
+      - name: transactionIdempotence
+        type: string
+        source: transaction_idempotence
+      - name: transferId
+        type: string
+        source: transfer_id
+      - name: wallet
+        type: string
+        source: wallet
+    on_retry:
+      type: redis
+      config:
+        properties:
+          host: '192.168.3.34'
+          port: '6379'
+          db: 9
+          stream.name: 'stage:gaas/transfer'
+    on_failure:
+      type: redis
+      config:
+        properties:
+          host: '192.168.3.34'
+          port: '6379'
+          db: 9
+          stream.name: 'failure:gaas/transfer'
+  - type: kafka
+    route: !regex { pattern: 'retry-transfer'}
+    config:
+      topic: 'flink-test-retry-topic-${Environment}'
+      message_key: "#{ctx.player}@#{ctx.provider}"
+      properties:
+        bootstrap.servers: '${Kafka_Bootstrap}'
+        acks: '${Kafka_Acks}'
+        security.protocol: '${Kafka_Security_Protocol}'
+    mapping:
+#      - name: _timestamp
+#        type: string
+#        source:
+      - name: amount
+        type: string
+        source: amount
+      - name: asset
+        type: string
+        source: asset
+      - name: balance
+        type: string
+        source: balance
+      - name: casino
+        type: string
+        source: casino
+      - name: casinoTransactionId
+        type: string
+        source: casino_transaction_id
+      - name: commitAt
+        type: timestamp
+        source: commit_at
+      - name: currency
+        type: string
+        source: currency
+      - name: dealer
+        type: string
+        source: dealer
+      - name: dealerPlayer
+        type: string
+        source: dealer_player
+      - name: nonExpendable
+        type: string
+        source: non_expendable
+      - name: operationUrn
+        type: string
+        source: operation_urn
+      - name: player
+        type: string
+        source: player
+      - name: provider
+        type: string
+        source: provider
+      - name: status
+        type: string
+        source: status
+      - name: transactionIdempotence
+        type: string
+        source: transaction_idempotence
+      - name: transferId
+        type: string
+        source: transfer_id
+      - name: wallet
+        type: string
+        source: wallet

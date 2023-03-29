@@ -1,0 +1,133 @@
+namespace: game.bet.compliance.archiver
+kubernetes:
+  namespace: 'gaas-flink-${Environment}-namespace'
+  name: 'flink-config'
+  config_file: 'flink-conf.yaml'
+source:
+  - type: kafka
+    route: compliance-sink
+    config:
+      topic: '${Kafka_Gaas_Fish_Bet_Source_Topic}'
+      properties:
+        bootstrap.servers: 'b-2.gaas-prod-and-uat.ue2tgb.c4.kafka.ap-northeast-1.amazonaws.com:9092'
+        group.id: gaas-game-bet-compliance-archiver-${Environment}
+        auto.offset.reset: earliest
+        max.poll.records: 50
+        max.poll.interval.ms: 86400000
+        acks: -1
+        security.protocol: '${Kafka_Security_Protocol}'
+    metadata:
+      - name: _timestamp
+        type: timestamp
+        precision: msec
+sink:
+  - type: postgresql
+    route: !regex { pattern: '^[a-zA-Z0-9._.-]+'}
+    filter: "ctx.status == 'SETTLED' && (ctx.round == nil || ctx.round.length == 0)"
+    config:
+      properties:
+        host: 'jdbc:postgresql://${Postgres_Host}:${Postgres_Port}/${Postgres_Database}'
+        user: '${Postgres_Username}'
+        password: '${Postgres_Password}'
+        sql: 'CALL ts_write_game_bet(%{*:json}::json, NULL)'
+    mapping:
+      - name: ticketId
+        type: string
+        source: ticketId
+      - name: dealer
+        type: string
+        source: dealer
+      - name: provider
+        type: string
+        source: provider
+      - name: player
+        type: string
+        source: player
+      - name: account
+        type: string
+        source: account
+      - name: game
+        type: string
+        source: game
+      - name: room
+        type: string
+        source: room
+      - name: round
+        type: string
+        source: round
+      - name: roundType
+        type: string
+        source: roundType
+      - name: currency
+        type: string
+        source: currency
+      - name: wallet
+        type: string
+        source: wallet
+      - name: wager
+        type: decimal
+        source: wager
+      - name: winlost
+        type: decimal
+        tag:
+          - 'required'
+        source: winlost
+      - name: status
+        type: string
+        source: status
+      - name: symbol
+        type: json
+        source: symbol
+      - name: server
+        type: string
+        source: server
+      - name: session
+        type: string
+        source: session
+      - name: playerDevice
+        type: string
+        tag:
+          - 'required'
+        source: playerDevice
+      - name: playerOs
+        type: string
+        tag:
+          - 'required'
+        source: playerOs
+      - name: playerIp
+        type: string
+        tag:
+          - 'required'
+        source: playerIp
+      - name: winType
+        type: string
+        tag:
+          - 'required'
+        source: winType
+      - name: timezone
+        type: string
+        tag:
+          - 'required'
+        source: timezone
+      - name: timestamp
+        type: timestamp
+        precision: sec
+        tag:
+          - 'required'
+        source: _timestamp
+    on_retry:
+      type: kafka
+      config:
+        topic: 'flink-test-retry-topic-${Environment}'
+        properties:
+          bootstrap.servers: '${Kafka_Bootstrap}'
+          acks: '${Kafka_Acks}'
+          security.protocol: '${Kafka_Security_Protocol}'
+    on_failure:
+      type: kafka
+      config:
+        topic: 'flink-test-failure-topic-${Environment}'
+        properties:
+          bootstrap.servers: '${Kafka_Bootstrap}'
+          acks: '${Kafka_Acks}'
+          security.protocol: '${Kafka_Security_Protocol}'

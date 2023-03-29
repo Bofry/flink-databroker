@@ -1,0 +1,167 @@
+namespace: game.biz.elasticsearch.round.archiver
+kubernetes:
+  namespace: 'gaas-flink-${Environment}-namespace'
+  name: 'flink-config'
+  config_file: 'flink-conf.yaml'
+source:
+  - type: kafka
+    route: round-sink
+    config:
+      topic: 'gaas-fish-round-sink-topic-${Environment}'
+      properties:
+        bootstrap.servers: '${Kafka_Bootstrap}'
+        group.id: gaas-game-biz-elasticsearch-round-archiver-flink-${Environment}
+        auto.offset.reset: earliest
+        max.poll.records: 50
+    metadata:
+      - name: startAt
+        type: timestamp
+        precision: sec
+      - name: finishAt
+        type: timestamp
+        precision: sec
+sink:
+  - type: elasticsearch
+    route: !regex { pattern: '^[a-zA-Z0-9._.-]+'}
+    config:
+      properties:
+        host: '${Elasticsearch_Business_Address}'
+        user: '${Elasticsearch_Business_Username}'
+        password: '${Elasticsearch_Business_Password}'
+        method: 'POST'
+        use_bulk: true
+        bulk_flush_interval: 10
+        bulk_flush_capacity: 50
+        bulk_flush_max_size: 2097152
+        action: 'update'
+        index: "gaas-round-flink-${Environment}-#{ctx.round.to_s[0..5]}"
+        document_id: "round:#{ctx.round}:round_type:#{ctx.round_type}"
+        dsl: |
+          {
+             "script": {
+               "source": "ctx._source.parent_round = params.parent_round;",
+               "lang": "painless",
+               "params": %{doc}
+             },
+             "upsert": %{doc}
+          }
+    mapping:
+      - name: round
+        type: long
+        tag:
+          - 'required'
+        source: round
+      - name: round_type
+        type: string
+        source: roundType
+      - name: parent_round
+        type: long
+        tag:
+        source: round
+        default: !ref {field: round}
+      - name: leader_ticket
+        type: long
+        tag:
+        source: leaderTicket
+      - name: game
+        type: long
+        source: game
+      - name: room
+        type: long
+        source: room
+      - name: vendor
+        type: long
+        tag:
+          - 'required'
+        source: provider
+      - name: casino
+        type: string
+        source: casino
+      - name: account
+        type: long
+        source: account
+      - name: account_type
+        type: long
+        source: accountType
+      - name: player
+        type: string
+        tag:
+          - 'required'
+          - 'non_empty'
+        source: player
+      - name: dealer
+        type: string
+        source: dealer
+      - name: dealer_player
+        type: string
+        source: dealerPlayer
+      - name: gross_total_bet
+        type: string
+        source: grossTotalBet
+      - name: total_bet
+        type: string
+        tag:
+          - 'required'
+          - 'non_empty'
+        source: totalBet
+      - name: total_win
+        type: string
+        tag:
+          - 'required'
+          - 'non_empty'
+        source: totalWin
+      - name: total_refund
+        type: string
+        source: totalRefund
+      - name: session
+        type: string
+        source: session
+      - name: wallet
+        type: string
+        source: wallet
+      - name: currency
+        type: string
+        source: currency
+      - name: bet_count
+        type: long
+        source: betCount
+      - name: start_at
+        type: timestamp
+        precision: msec
+        tag:
+          - 'required'
+        source: startAt
+      - name: close_at
+        type: timestamp
+        precision: msec
+        tag:
+          - 'required'
+        source: finishAt
+      - name: ip_addr
+        type: string
+        source: playerIp
+      - name: player_os
+        type: string
+        source: playerOs
+      - name: player_device
+        type: string
+        source: playerDevice
+      - name: timezone
+        type: string
+        source: timezone
+    on_retry:
+      type: kafka
+      config:
+        topic: 'flink-test-retry-topic-${Environment}'
+        properties:
+          bootstrap.servers: '${Kafka_Bootstrap}'
+          acks: '${Kafka_Acks}'
+          security.protocol: '${Kafka_Security_Protocol}'
+    on_failure:
+      type: kafka
+      config:
+        topic: 'flink-test-failure-topic-${Environment}'
+        properties:
+          bootstrap.servers: '${Kafka_Bootstrap}'
+          acks: '${Kafka_Acks}'
+          security.protocol: '${Kafka_Security_Protocol}'

@@ -1,0 +1,34 @@
+namespace: com.bofry
+kubernetes:
+  namespace: 'gaas-flink-${Environment}-namespace'
+  name: 'flink-config'
+  config_file: 'flink-conf.yaml'
+source:
+  - type: redis
+    route: source-sink
+    config:
+      properties:
+        host: 'localhost'
+        port: 6379
+        db: 1
+        stream.name: 'test-java-stream'
+        stream.group: 'test-java-group'
+        max.in.flight: 100
+        max.polling.timeout.ms: 100
+        claim.min.idle.time: 30
+        idling.timeout.ms: 300
+        claim.sensitivity: 1
+        claim.occurrence.rate: 5
+        auto.commit.action: 'commit'
+        auto.commit.interval.ms: 3000
+        concurrency: 4
+sink:
+  - type: redis
+    route: !regex { pattern: '^[a-zA-Z0-9._.-]+'}
+    config:
+      properties:
+        host: 'localhost'
+        port: 6379
+        db: 2
+        stream.name: 'test-java-stream'
+

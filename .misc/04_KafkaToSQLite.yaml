@@ -1,0 +1,62 @@
+namespace: com.bofry
+kubernetes:
+  namespace: 'gaas-flink-${Environment}-namespace'
+  name: 'flink-config'
+  config_file: 'flink-conf.yaml'
+source:
+  - type: kafka
+    route: source-sink
+    config:
+      topic: 'flink-test-source-topic-${Environment}'
+      properties:
+        bootstrap.servers: 'localhost:9092'
+        group.id: flink-test-group
+        auto.offset.reset: earliest
+        max.poll.records: 50
+        max.poll.interval.ms: 86400000
+sink:
+  - type: sqlite
+    route: !regex { pattern: '^[a-zA-Z0-9._.-]+'}
+    config:
+      properties:
+        host: 'jdbc:sqlite:/tmp/Test-#{ctx.create_date.to_s[0..5]}.db'
+        user: 'sqlite'
+        password: 'sqlite'
+        sql: 'CREATE TABLE IF NOT EXISTS test (player TEXT, bet REAL, create_date INTEGER);INSERT INTO test (player,bet,create_date) VALUES( %{player}, %{bet}, %{create_date});'
+    mapping:
+      - name: player
+        type: string
+        tag:
+          - 'required'
+          - 'non_empty'
+        source: player
+        default: jj
+      - name: bet
+        type: decimal
+        tag:
+          - 'required'
+          - 'non_negative_integer'
+        source: bet
+        default: 9999.99
+      - name: create_date
+        type: timestamp
+        tag:
+          - 'required'
+        source: timestamp
+        default: 1628880299123
+    on_retry:
+      type: kafka
+      config:
+        topic: 'flink-test-retry-topic-${Environment}'
+        properties:
+          bootstrap.servers: 'localhost:9092'
+          acks: '-1'
+          security.protocol: 'PLAINTEXT'
+    on_failure:
+      type: kafka
+      config:
+        topic: 'flink-test-failure-topic-${Environment}'
+        properties:
+          bootstrap.servers: 'localhost:9092'
+          acks: '-1'
+          security.protocol: 'PLAINTEXT'

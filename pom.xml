@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.bofry</groupId>
+    <artifactId>databroker</artifactId>
+    <packaging>pom</packaging>
+    <version>1.0.0-SNAPSHOT</version>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <flink.version>1.13.5</flink.version>
+        <compile.version>11</compile.version>
+        <target.java.version>11</target.java.version>
+        <scala.binary.version>2.12</scala.binary.version>
+        <maven.compiler.sourceSection>${target.java.version}</maven.compiler.sourceSection>
+        <maven.compiler.target>${target.java.version}</maven.compiler.target>
+        <log4j.version>2.12.1</log4j.version>
+        <snakeyaml.version>1.27</snakeyaml.version>
+        <lombok.version>1.18.20</lombok.version>
+        <kafka-clients.version>2.8.0</kafka-clients.version>
+        <elasticsearch-rest-client.version>7.14.0</elasticsearch-rest-client.version>
+        <mysql-connector-java.version>8.0.16</mysql-connector-java.version>
+        <junit.version>4.13</junit.version>
+        <spring.version>2.0.0</spring.version>
+        <jackson.version>2.12.4</jackson.version>
+        <jruby-complete.version>9.3.0.0</jruby-complete.version>
+        <fast-and-simple-minify.version>1.0</fast-and-simple-minify.version>
+        <postgresql.version>42.2.23</postgresql.version>
+        <sqlite-jdbc.version>3.36.0.3</sqlite-jdbc.version>
+        <lettuce-core.version>6.1.5.RELEASE</lettuce-core.version>
+    </properties>
+
+    <modules>
+        <module>application</module>
+        <module>core</module>
+    </modules>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-streaming-java_${scala.binary.version}</artifactId>
+            <version>${flink.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-clients_${scala.binary.version}</artifactId>
+            <version>${flink.version}</version>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.2</version>
+                <configuration>
+                    <target>11</target>
+                    <source>11</source>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
